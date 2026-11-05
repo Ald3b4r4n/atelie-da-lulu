@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
@@ -93,7 +94,7 @@ function skirt(parent, id, surface, decoration, dress) {
   const fullness = id === "lapis" ? .02 : .045 + (variant % 5) * .009;
   const waist = dress ? 1.64 : 1.58;
   const profile = [[hem, width, depth, .023], [hem + .11, width * .99, depth * .99, .02],
-    [(hem + waist) / 2, width * .77, depth * .81, .011], [waist - .14, .32, .216], [waist, .265, .216]];
+    [(hem + waist) / 2, width * .77, depth * .81, .011], [waist - .14, .32, .216, 0], [waist, .265, .216, 0]];
   const section = height => {
     const index = profile.findIndex(([level]) => level > height);
     const upperIndex = index === -1 ? profile.length - 1 : index;
@@ -117,7 +118,7 @@ function skirt(parent, id, surface, decoration, dress) {
   cloth(parent, [[waist - .07, .28, .23], [waist, .275, .226]], decoration, .013);
 
   if (["borboleta", "flores", "coracao", "noite", "rodado"].includes(id)) {
-    const top = material(id === "coracao" ? "#e15592" : "#fdf0fa");
+    const top = material(id === "coracao" ? "#e15592" : id === "flores" ? "#e196c0" : "#fdf0fa");
     const bottom = material(id === "noite" || id === "rodado" ? "#ffe5a0" : "#c3e8ff");
     const metal = id === "borboleta" ? material(GOLD) : null;
     const heart = new THREE.Shape();
@@ -159,30 +160,34 @@ function skirt(parent, id, surface, decoration, dress) {
   }
 }
 
-function outfit(parent, st, catalogs) {
+function outfit(parent, st, catalogs, slot) {
   const id = st.dress || st.top;
   const variant = tag(id || "");
-  const mainColor = id === "borboleta" ? "#ed91b9" : artColor(id, st.dress ? catalogs.dresses : catalogs.tops, PINK);
+  const dressColors = { borboleta: "#ed91b9", noite: "#43376f", flores: "#ffe7c9", arcoIris: "#f8d9cb" };
+  const mainColor = dressColors[id] || artColor(id, st.dress ? catalogs.dresses : catalogs.tops, PINK);
   const silk = material(mainColor, { side: THREE.DoubleSide });
   const trim = material(st.dress === "borboleta" ? "#f7c4df" : new THREE.Color(mainColor).lerp(new THREE.Color(VANILLA), .39),
     { side: THREE.DoubleSide });
   const straps = ["borboleta", "flores", "regata", "ombro"].includes(id);
-  cloth(parent, [[1.42, .273, .217], [1.57, .279, .225], [1.77, .306, .218],
+  if (slot === "dress" || slot === "top") {
+    cloth(parent, [[1.42, .273, .217], [1.57, .279, .225], [1.77, .306, .218],
     [straps ? 1.90 : 1.97, .266, .178], [straps ? 1.91 : 2.04, straps ? .235 : .131, .139]],
     st.dress || st.top ? silk : material("#fff1dc", { side: THREE.DoubleSide }), st.dress === "borboleta" ? .025 : .007);
-  for (const side of [-1, 1]) {
-    if (straps) {
-      pipe(parent, [[side * .165, 1.83, .173], [side * .205, 2.022, .076],
-        [side * .211, 2.02, -.06], [side * .165, 1.83, -.17]], .033, trim);
-    } else if (id) {
-      oval(parent, [side * .278, 1.881 - variant % 3 * .022, .003],
-        [.128, .126 + variant % 3 * .026, .105], silk, side * -.45);
+    for (const side of [-1, 1]) {
+      if (straps) {
+        pipe(parent, [[side * .165, 1.83, .173], [side * .205, 2.022, .076],
+          [side * .211, 2.02, -.06], [side * .165, 1.83, -.17]], .033, trim);
+      } else if (id) {
+        oval(parent, [side * .278, 1.881 - variant % 3 * .022, .003],
+          [.128, .126 + variant % 3 * .026, .105], silk, side * -.45);
+      }
     }
+    if (["blusa", "festa", "ombro"].includes(st.top)) butterfly(parent, [0, 1.77, .223], .082, trim, material("#fff1dc"));
   }
   if (st.dress) {
     skirt(parent, id, silk, trim, true);
     butterfly(parent, [0, 1.64, .243], .115, trim, material("#fff1dc"));
-  } else {
+  } else if (slot === "bottom") {
     const lower = material(artColor(st.bottom, catalogs.bottoms, "#c6aeea"), { side: THREE.DoubleSide });
     if (st.bottom && !/short|cal[cç]a|bermuda|jeans|legging|moletom/.test(st.bottom)) {
       skirt(parent, st.bottom, lower, trim, false);
@@ -194,10 +199,9 @@ function outfit(parent, st, catalogs) {
         trouser.position.x = side * .139;
       }
     }
-    if (st.top) butterfly(parent, [0, 1.77, .223], .082, trim, material("#fff1dc"));
   }
 
-  if (st.shoe) {
+  if (slot === "shoe") {
     const shoe = material(artColor(st.shoe, catalogs.shoes, "#f6b4cc"), { roughness: .32 });
     const sole = material(VANILLA);
     for (const side of [-1, 1]) {
@@ -213,6 +217,23 @@ function outfit(parent, st, catalogs) {
       }
     }
   }
+}
+
+// Authoring entry point. The browser uses the resulting Blender-exported models.
+export function buildWardrobe(catalogs) {
+  const wardrobe = new THREE.Group();
+  const slots = { dress: "dresses", top: "tops", bottom: "bottoms", shoe: "shoes" };
+  for (const [slot, catalog] of Object.entries(slots)) {
+    const ids = Object.keys(catalogs[catalog]);
+    if (slot === "top" || slot === "bottom") ids.push("base");
+    for (const id of ids) {
+      const piece = new THREE.Group();
+      piece.name = slot + "_" + id;
+      wardrobe.add(piece);
+      outfit(piece, { [slot]: id === "base" ? null : id }, catalogs, slot);
+    }
+  }
+  return wardrobe;
 }
 
 function accessories(parent, st, catalogs) {
@@ -355,63 +376,7 @@ function disposeParts(group) {
   group.clear();
 }
 
-function makePortal(scene) {
-  const shape = new THREE.Shape();
-  shape.moveTo(-1.025, 0);
-  shape.lineTo(1.025, 0);
-  shape.lineTo(1.025, 1.28);
-  shape.bezierCurveTo(1.025, 1.94, .58, 2.29, 0, 2.29);
-  shape.bezierCurveTo(-.58, 2.29, -1.025, 1.94, -1.025, 1.28);
-  shape.closePath();
-  const geometry = new THREE.ShapeGeometry(shape);
-  const pos = geometry.attributes.position;
-  for (let i = 0; i < pos.count; i++) geometry.attributes.uv.setXY(i, pos.getX(i) / 2.05 + .5, pos.getY(i) / 2.29);
-  const surface = new THREE.MeshBasicMaterial({ color: "#fff", toneMapped: false });
-  mesh(scene, geometry, surface, [0, 1.49, -2.119]);
-  return surface;
-}
-
-function backdrop(id, catalog) {
-  if (id === "quarto") {
-    return `<defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#a9d8f0"/><stop offset="1" stop-color="#f9e0f0"/></linearGradient></defs>
-      <rect width="320" height="560" fill="url(#sky)"/><circle cx="226" cy="147" r="33" fill="#fff3c4"/>
-      <path d="M0 369Q90 275 179 360T320 324V560H0Z" fill="#c3e1cf"/>
-      <path d="M0 414Q98 325 198 420T320 389V560H0Z" fill="#a7cdb9"/>
-      <g fill="#fff6fd" opacity=".93"><ellipse cx="68" cy="194" rx="43" ry="13"/><ellipse cx="67" cy="184" rx="26" ry="17"/>
-      <ellipse cx="256" cy="242" rx="42" ry="11"/><ellipse cx="252" cy="235" rx="23" ry="16"/></g>`;
-  }
-  return catalog[id].art();
-}
-
-function blobDownload(canvas) {
-  return new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-}
-
-export async function mountStudio(container, catalogs, onTap, initialLook) {
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color("#e2cced");
-  const camera = new THREE.OrthographicCamera();
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.13;
-  const loader = new GLTFLoader();
-  let atelier, doll;
-  try {
-    [atelier, doll] = await Promise.all([loader.loadAsync("assets/atelie.glb"), loader.loadAsync("assets/lulu-3d.glb")]);
-  } catch (error) {
-    renderer.dispose();
-    throw error;
-  }
-  const lulu = doll.scene.getObjectByName("Lulu");
-  lulu.position.set(0, .31, .55);
-  scene.add(atelier.scene, doll.scene);
-  batchMeshes(atelier.scene);
-  const decoration = new THREE.Group();
-  const hairstyleParts = new THREE.Group();
-  lulu.add(decoration, hairstyleParts);
-
+function lightStudio(scene) {
   scene.add(new THREE.HemisphereLight("#fff3fb", "#ac84a3", 1.89));
   for (const [color, power, xyz] of [
     ["#fff0dc", 3.2, [-3.6, 6.8, 5]], ["#cadbff", 1.15, [4.5, 4.1, 2.4]], ["#ffc6eb", 1.85, [1, 5, -4]]
@@ -420,6 +385,81 @@ export async function mountStudio(container, catalogs, onTap, initialLook) {
     light.position.set(...xyz);
     scene.add(light);
   }
+}
+
+function makeThumbnails(wardrobe, toneMapping, exposure) {
+  const cache = new Map();
+  let renderer, scene, camera;
+  return (slot, id) => {
+    const key = slot + "_" + id;
+    if (cache.has(key)) return cache.get(key);
+    const original = wardrobe.getObjectByName(key);
+    if (!original) return null;
+    if (!renderer) {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(156, 156, false);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = toneMapping;
+      renderer.toneMappingExposure = exposure;
+      scene = new THREE.Scene();
+      camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .01, 20);
+      lightStudio(scene);
+    }
+    const garment = original.clone();
+    scene.add(garment);
+    const bounds = new THREE.Box3().setFromObject(garment);
+    const center = bounds.getCenter(point());
+    const size = bounds.getSize(point());
+    const half = Math.max(size.x, size.y, size.z) * .61;
+    camera.left = camera.bottom = -half;
+    camera.right = camera.top = half;
+    camera.position.copy(center).add(point(slot === "shoe" ? .63 : .30, slot === "shoe" ? 1.13 : .34, 4));
+    camera.lookAt(center);
+    camera.updateProjectionMatrix();
+    renderer.render(scene, camera);
+    scene.remove(garment);
+    const src = renderer.domElement.toDataURL("image/png");
+    cache.set(key, src);
+    return src;
+  };
+}
+
+function blobDownload(canvas) {
+  return new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+}
+
+export async function mountStudio(container, catalogs, onTap, initialLook, onWorldError) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color("#e2cced");
+  const camera = new THREE.OrthographicCamera();
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.13;
+  const draco = new DRACOLoader().setDecoderPath("assets/draco/");
+  const loader = new GLTFLoader().setDRACOLoader(draco);
+  let atelier, doll, wardrobe;
+  try {
+    [atelier, doll, wardrobe] = await Promise.all([
+      loader.loadAsync("assets/atelie.glb"), loader.loadAsync("assets/lulu-3d.glb"), loader.loadAsync("assets/wardrobe.glb")
+    ]);
+  } catch (error) {
+    draco.dispose();
+    renderer.dispose();
+    throw error;
+  }
+  draco.dispose();
+  const lulu = doll.scene.getObjectByName("Lulu");
+  lulu.position.set(0, .31, .55);
+  scene.add(atelier.scene, doll.scene);
+  batchMeshes(atelier.scene);
+  const worn = new THREE.Group();
+  const decoration = new THREE.Group();
+  const hairstyleParts = new THREE.Group();
+  lulu.add(worn, decoration, hairstyleParts);
+  lightStudio(scene);
+  const thumbnail = makeThumbnails(wardrobe.scene, renderer.toneMapping, renderer.toneMappingExposure);
 
   const shadowCanvas = document.createElement("canvas");
   shadowCanvas.width = shadowCanvas.height = 128;
@@ -435,12 +475,49 @@ export async function mountStudio(container, catalogs, onTap, initialLook) {
   const shadowSurface = new THREE.MeshBasicMaterial({ map: shadowTexture, transparent: true, depthWrite: false });
   for (const [x, y, z, width, depth] of [[0, .488, .52, 1.5, .97], [-2.35, .272, -.64, 2.25, 1.7],
     [2.42, .272, -1.03, 2.68, 1.4], [-2.7, .272, 1.28, 1.1, .9], [2.7, .272, 1.15, 1.1, .9]]) {
-    mesh(scene, new THREE.PlaneGeometry(width, depth), shadowSurface, [x, y, z]).rotation.x = -Math.PI / 2;
+    const parent = y > .4 ? scene : atelier.scene;
+    mesh(parent, new THREE.PlaneGeometry(width, depth), shadowSurface, [x, y, z]).rotation.x = -Math.PI / 2;
   }
 
-  const portal = makePortal(scene);
-  let sceneId;
-  const portalLoader = new THREE.TextureLoader();
+  const worlds = new Map([["quarto", Promise.resolve({ group: atelier.scene, sky: "#e2cced" })]]);
+  const fog = new THREE.Fog("#e2cced", 14, 21.6);
+  let worldRequest = "quarto";
+  let activeWorld = atelier.scene;
+  container.dataset.world = "quarto";
+
+  async function showWorld(id) {
+    if (worldRequest === id) return;
+    worldRequest = id;
+    container.classList.add("world-loading");
+    if (!worlds.has(id)) {
+      const pending = loader.loadAsync("assets/worlds/" + id + ".glb").then(({ scene: group }) => {
+        const sky = group.getObjectByName("World_" + id)?.userData.sky || "#e2cced";
+        batchMeshes(group);
+        return { group, sky };
+      }).catch(error => {
+        worlds.delete(id);
+        throw error;
+      });
+      worlds.set(id, pending);
+    }
+    try {
+      const { group, sky } = await worlds.get(id);
+      if (worldRequest !== id) return;
+      scene.remove(activeWorld);
+      scene.add(group);
+      activeWorld = group;
+      scene.background.set(sky);
+      fog.color.set(sky);
+      scene.fog = id === "quarto" ? null : fog;
+      container.dataset.world = id;
+    } catch (error) {
+      if (worldRequest !== id) return;
+      worldRequest = container.dataset.world;
+      onWorldError(error);
+    } finally {
+      if (worldRequest === id || worldRequest === container.dataset.world) container.classList.remove("world-loading");
+    }
+  }
   const butterflies = [-1, 1].map((side, i) => butterfly(scene, [side * 1.5, 2.74, .15], .15 + i * .027,
     material(i ? "#bce2fd" : "#f6a9d0"), material(i ? "#d8bdf3" : "#fee2ae")));
   const sparkleMaterial = new THREE.MeshBasicMaterial({ color: "#fff1d1", transparent: true, opacity: .82 });
@@ -458,14 +535,30 @@ export async function mountStudio(container, catalogs, onTap, initialLook) {
   lulu.traverse(object => {
     if (object.isMesh && Object.hasOwn(skinMap, object.material.name)) faceSurfaces.add(object.material);
   });
-  let currentOutfit, currentHair;
+  const faceGroups = { eyes: "eyeShape", nose: "noseShape", mouth: "mouthShape" };
+  const faceParts = lulu.children.flatMap(object => {
+    const [group, id] = object.name.split("_");
+    return faceGroups[group] ? [{ object, property: faceGroups[group], id }] : [];
+  });
+  let currentOutfit, currentAccessories, currentHair;
   function update(st) {
     for (const surface of faceSurfaces) surface.color.set(skinMap[surface.name](st));
-    const outfitKey = JSON.stringify([st.top, st.bottom, st.dress, st.shoe, st.acc, st.shadow]);
+    for (const { object, property, id } of faceParts) object.visible = st[property] === id;
+    const outfitKey = JSON.stringify([st.top, st.bottom, st.dress, st.shoe]);
     if (outfitKey !== currentOutfit) {
       currentOutfit = outfitKey;
+      worn.clear();
+      const pieces = st.dress ? ["dress_" + st.dress] : ["top_" + (st.top || "base"), "bottom_" + (st.bottom || "base")];
+      if (st.shoe) pieces.push("shoe_" + st.shoe);
+      for (const key of pieces) {
+        const piece = wardrobe.scene.getObjectByName(key);
+        if (piece) worn.add(piece.clone());
+      }
+    }
+    const accessoryKey = JSON.stringify([st.acc, st.shadow]);
+    if (accessoryKey !== currentAccessories) {
+      currentAccessories = accessoryKey;
       disposeParts(decoration);
-      outfit(decoration, st, catalogs);
       accessories(decoration, st, catalogs);
       if (st.shadow) {
         const shadow = material(st.shadow);
@@ -481,18 +574,7 @@ export async function mountStudio(container, catalogs, onTap, initialLook) {
       disposeParts(hairstyleParts);
       hairstyle(hairstyleParts, lulu, st, catalogs.hair);
     }
-    if (sceneId !== st.bg) {
-      const id = sceneId = st.bg;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="576" viewBox="0 0 320 420" preserveAspectRatio="none">${backdrop(id, catalogs.scenes)}</svg>`;
-      portalLoader.load("data:image/svg+xml," + encodeURIComponent(svg), texture => {
-        if (id !== sceneId) { texture.dispose(); return; }
-        texture.colorSpace = THREE.SRGBColorSpace;
-        portal.map?.dispose();
-        portal.map = texture;
-        portal.needsUpdate = true;
-      });
-      scene.background.set(id === "quarto" ? "#e2cced" : artColor(id, catalogs.scenes, "#e2cced"));
-    }
+    showWorld(st.bg);
   }
 
   const canvas = renderer.domElement;
@@ -536,11 +618,14 @@ export async function mountStudio(container, catalogs, onTap, initialLook) {
     const t = reduceMotion.matches ? 0 : time * .001;
     lulu.rotation.y = angle + Math.sin(t * 1.4) * .035;
     lulu.rotation.z = Math.sin(t * 1.19) * .009;
-    camera.position.set(.69 * (1 - view), 4.64 - .61 * view, 10.8);
-    camera.zoom = 1 + .22 * view;
-    camera.lookAt(0, 1.91, .14);
+    camera.position.set(.69 * (1 - Math.min(view, 1)), 4.64 - .37 * view, 10.8);
+    camera.zoom = 1 + .22 * view + .87 * Math.max(0, view - 1);
+    camera.lookAt(0, 1.91 + 1.12 * Math.max(0, view - 1), .14);
+    const world = container.dataset.world;
+    const butterfliesVisible = ["quarto", "jardim", "floresta", "fazenda"].includes(world);
     camera.updateProjectionMatrix();
     butterflies.forEach(({ body, wings }, i) => {
+      body.visible = butterfliesVisible;
       const side = i === 0 ? -1 : 1;
       body.position.x = side * (1.22 + .31 * Math.cos(t * .63 + i));
       body.position.y = 2.5 + .32 * Math.sin(t * 1.34 + i * 1.4);
@@ -563,7 +648,11 @@ export async function mountStudio(container, catalogs, onTap, initialLook) {
   return {
     update,
     rotate: radians => { targetAngle += radians; },
-    frame: close => { targetView = close ? 1 : 0; },
+    frame(mode) {
+      targetView = mode === "face" ? 2 : mode ? 1 : 0;
+      if (mode === "face") targetAngle = Math.round(targetAngle / TAU) * TAU;
+    },
+    thumbnail,
     setActive(next) {
       active = next;
       container.classList.toggle("has-3d", active);

@@ -12,7 +12,7 @@
 
 ![Lulu com seu vestido rosa de borboletas, em um ateliê com máquina de costura, balões e arara de vestidos](docs/atelie-da-lulu-3d.png)
 
-Entre no ateliê, escolha um look e descubra que mundo aparece na janela. A foto da Lulu inspirou o vestido de borboletas e a paleta pastel do jogo.
+Entre no ateliê, escolha um look e leve a Lulu para brincar em outro mundo. A foto da Lulu inspirou o vestido de borboletas e a paleta pastel do jogo.
 
 ## Como jogar
 
@@ -30,20 +30,26 @@ Abra [o ateliê](http://localhost:5173/) e clique em **Vamos brincar!** para lib
 | --- | --- |
 | 👗 **Guarda-roupa** | Combine roupas, sapatos, penteados, maquiagem e acessórios. |
 | ↻ **Girar e aproximar** | Arraste a Lulu para girá-la ou use os controles da câmera. |
-| 🌈 **Cenário** | Explore 20 vistas da janela, cada uma com a sua trilha. |
+| ✨ **Rosto** | Escolha o formato dos olhos, da boca e do nariz com a câmera aproximada. |
+| 🌈 **Cenário** | Explore 20 ambientes 3D, cada um com a sua trilha. |
 | 🎲 **Surpresa** | Sorteie um look. Use **Limpar** para voltar ao vestido de borboletas. |
 | 📸 **Salvar foto** | Baixe um PNG do look na vista atual. |
 | 🎵 **Música** | Ouça **Asas de Algodão**, o tema de abertura com sininhos, harpa e piano. |
 
 ## Bastidores do 3D
 
-O [arquivo editável do Blender](blender/atelie.blend) contém a Lulu, o vestido de borboletas e o diorama do ateliê. No navegador, o [código da cena](studio.js) carrega os modelos GLB e aplica as escolhas do guarda-roupa em tempo real.
+- [Ateliê e Lulu](blender/atelie.blend) reúne o diorama original, a boneca e as formas faciais.
+- [Guarda-roupa](blender/guarda-roupa.blend) reúne as peças usadas na boneca e nas miniaturas.
+- [Mundos](blender/mundos.blend) reúne os 19 ambientes adicionais. O jogo carrega cada cenário ao ser selecionado.
 
 Para regenerar os modelos com o Blender 4.5 e recompilar a cena web:
 
 ```bash
-blender --background --python blender/build_atelie.py
 npm ci
+blender --background --python blender/build_atelie.py
+blender --background --python blender/build_worlds.py
+node blender/export_wardrobe.mjs
+blender --background --python blender/build_wardrobe.py
 npm run build
 ```
 

@@ -34,8 +34,8 @@ purple = material("Iris", "9B82C7")
 gold = material("Champagne", "E7B273", .24, .52)
 leaf = material("Sage", "77A882")
 skin = material("Skin", "F7D2B0", .53)
-hair = material("Hair", "5B3A24", .38)
-strand = material("Hair sheen", "8B6248", .43)
+hair = material("Hair", "5B3A24", .56)
+strand = material("Hair sheen", "8B6248", .60)
 iris = material("Iris color", "6B4226", .25)
 dark = material("Cocoa", "33202A")
 lip = material("Lips", "D98A93")
@@ -228,6 +228,22 @@ for x,y,z,size in [(-1.42,1.6,3.13,.21),(1.46,1.62,3.24,.24),(2.86,1.81,3.53,.17
                    (-2.22,-.7,1.8,.14),(1.76,-.33,1.72,.16)]:
     butterfly("Butterfly ornament",x,y,z,size,pink,blue)
 
+# A shallow 3D landscape fills the atelier's arched window.
+outline=[(-1.045,2.203,1.45),(1.045,2.203,1.45),(1.045,2.203,2.70)]
+outline.extend((1.045*math.cos(a*math.pi/32),2.203,2.70+1.083*math.sin(a*math.pi/32))
+               for a in range(1,33))
+window=bpy.data.meshes.new("Arched window inset")
+window.from_pydata(outline,[],[tuple(range(len(outline)))])
+panel=bpy.data.objects.new("Window sky",window)
+bpy.context.collection.objects.link(panel)
+finish(panel,"Window sky",blue)
+ball("Window sun",(.58,2.136,3.23),(.17,.027,.17),white)
+for x,z in [(-.49,2.98),(.56,2.80)]:
+    for i in range(3):
+        ball("Window cloud",(x+i*.13-.13,2.142,z+.034*(i==1)),(.15,.026,.062),white)
+ball("Far hill",(-.47,2.132,1.64),(.55,.033,.20),mint)
+ball("Near hill",(.47,2.105,1.62),(.55,.033,.17),leaf)
+
 root = None
 root = group("Lulu")
 ball("Head",(0,0,2.56),(.48,.374,.50),skin)
@@ -243,20 +259,111 @@ for side in (-1,1):
     limb("Forearm",(side*.40,-.008,1.66),(side*.515,-.065,1.46),.069,skin)
     ball("Hand",(side*.542,-.076,1.42),(.076,.061,.092),skin,side*.4)
     ball("Thumb",(side*.49,-.114,1.45),(.033,.033,.047),skin,side*-.4)
-    ball("Eye outline",(side*.165,-.340,2.59),(.118,.062,.093),dark,side*.12)
-    ball("Eye white",(side*.165,-.365,2.583),(.107,.048,.075),sclera,side*.12)
-    ball("Iris",(side*.155,-.408,2.583),(.056,.023,.065),iris)
-    ball("Pupil",(side*.154,-.428,2.586),(.032,.012,.043),dark)
-    ball("Catchlight",(side*.155-.014,-.438,2.609),(.017,.008,.018),sclera)
-    ball("Catchlight",(side*.155+.016,-.436,2.571),(.008,.006,.009),sclera)
-    ball("Rosy cheek",(side*.282,-.303,2.458),(.071,.023,.039),blush,side*-.22)
-    tube("Brow",[(side*.088,-.348,2.733),(side*.16,-.35,2.754),(side*.242,-.314,2.728)],.014,hair)
-ball("Nose",(0,-.379,2.485),(.056,.046,.043),skin)
-tube("Smile",[(-.093,-.349,2.39),(0,-.37,2.357),(.093,-.349,2.39)],.021,lip)
-tube("Smile inset",[(-.065,-.365,2.388),(0,-.391,2.369),(.065,-.365,2.388)],.011,dark)
-tube("Smile glint",[(-.041,-.382,2.383),(0,-.398,2.377),(.041,-.382,2.383)],.006,sclera)
-
 avatar = root
+
+# Face details follow the ellipsoid so the eyes and lips sit against the cheeks.
+def face_y(x, z):
+    return -.374 * math.sqrt(max(.03, 1 - (x/.48)**2 - ((z-2.56)/.50)**2))
+
+def face_patch(name, cx, cz, outline, material, lift, dome=.006):
+    vertices = [(cx,face_y(cx,cz)-lift-dome,cz)]
+    for r in (.38,.74,1):
+        for dx,dz in outline:
+            x,z=cx+dx*r,cz+dz*r
+            vertices.append((x,face_y(x,z)-lift-dome*(1-r*r),z))
+    n=len(outline)
+    faces=[(0,1+i,1+(i+1)%n) for i in range(n)]
+    for row in range(2):
+        for i in range(n):
+            a=1+row*n+i
+            b=1+row*n+(i+1)%n
+            faces.append((a,a+n,b+n,b))
+    mesh=bpy.data.meshes.new(name)
+    mesh.from_pydata(vertices,[],faces)
+    mesh.update()
+    obj=bpy.data.objects.new(name,mesh)
+    bpy.context.collection.objects.link(obj)
+    return finish(obj,name,material,True)
+
+def contour(width, height, smile=0, cupid=0):
+    result=[]
+    for i in range(48):
+        a=math.tau*i/48
+        x=math.cos(a)
+        y=math.sin(a)
+        result.append((width*x,height*y+smile*x*x-cupid*max(0,y)*math.cos(4*x)))
+    return result
+
+lash=material("Chocolate lashes","492839",.57)
+cavity=material("Mouth interior","742B49",.76)
+tongue=material("Tongue","E67A9F",.58)
+teeth=material("Smile enamel","FFF2E7",.41)
+root=avatar
+for side in (-1,1):
+    # Brows sit above the eyelid instead of resting on the eye outline.
+    brow=[(side*.085,2.741),(side*.146,2.758),(side*.204,2.757),(side*.252,2.735)]
+    tube("Soft brow",[(x,face_y(x,z)-.009,z) for x,z in brow],.012,hair)
+    x,z=side*.266,2.463
+    face_patch("Rosy cheek",x,z,contour(.055,.024),blush,.001,.003)
+    for i in range(3):
+        x,z=side*(.241+i*.027),2.478+(.009 if i==1 else 0)
+        ball("Freckle",(x,face_y(x,z)-.004,z),(.007,.004,.006),strand)
+
+for key,w,h,tilt in [("doce",.115,.067,.10),("redondo",.102,.084,.025),("amendoado",.124,.052,.19)]:
+    root=avatar
+    root=group("eyes_"+key)
+    for side in (-1,1):
+        x,z=side*.159,2.590
+        eye_shape=[]
+        for dx,dz in contour(w,h):
+            eye_shape.append((dx,dz+side*dx*tilt))
+        face_patch("Sclera",x,z,eye_shape,sclera,.008,.021)
+        eye_x=x-side*.005
+        eye_size=.054 if key=="redondo" else .048
+        face_patch("Iris rim",eye_x,z,contour(eye_size+.004,min(h-.004,eye_size+.01)),dark,.031,.010)
+        face_patch("Iris",eye_x,z,contour(eye_size,min(h-.007,eye_size+.006)),iris,.034,.010)
+        face_patch("Pupil",eye_x,z+.003,contour(.027,.031),dark,.045,.005)
+        face_patch("Catchlight",eye_x-.017,z+.023,contour(.014,.012),sclera,.050,.003)
+        face_patch("Catchlight small",eye_x+.018,z-.018,contour(.007,.007),sclera,.047,.002)
+        arc=[]
+        for i in range(9):
+            a=math.pi*i/8
+            xx=x+w*math.cos(a)
+            zz=z+h*math.sin(a)+side*(xx-x)*tilt
+            arc.append((xx,face_y(xx,zz)-.013,zz))
+        tube("Upper eyelid",arc,.010,lash)
+        outer_x=x+side*w*.87
+        outer_z=z+h*.49+w*.87*tilt
+        for j in range(2):
+            xx=outer_x+side*.013*j
+            zz=outer_z-.014*j
+            tube("Lash",[(xx,face_y(xx,zz)-.017,zz),
+                         (xx+side*.019,face_y(xx+side*.019,zz+.009)-.017,zz+.009),
+                         (xx+side*.029,face_y(xx+side*.029,zz+.025)-.013,zz+.025)],.0055,lash)
+
+for key,w,h,p in [("botao",.046,.034,.030),("delicado",.033,.038,.021),("arredondado",.057,.030,.028)]:
+    root=avatar
+    root=group("nose_"+key)
+    z=2.479
+    face_patch("Nose",0,z,contour(w,h),skin,.001,p)
+    for side in (-1,1):
+        x=side*w*.59
+        face_patch("Nostril",x,z-h*.55,contour(w*.13,.004),blush,.010,.003)
+
+for key,w,h,smile in [("sorriso",.101,.032,.028),("suave",.087,.020,.017),("risada",.109,.046,.022)]:
+    root=avatar
+    root=group("mouth_"+key)
+    z=2.363
+    face_patch("Sculpted lips",0,z,contour(w,h,smile,.006),lip,.009,.014)
+    opening=.007 if key=="suave" else h*.68
+    face_patch("Mouth opening",0,z+.004,contour(w*.82,opening,smile*.73),cavity,.020,.006)
+    if key!="suave":
+        face_patch("Teeth",0,z+.012,contour(w*.65,.008,smile*.47),teeth,.027,.004)
+        face_patch("Tongue",0,z-opening*.53,contour(w*.33,.007),tongue,.028,.004)
+    face_patch("Lower lip sheen",-.022,z-h*.83,contour(.023,.0035),sclera,.019,.003)
+
+
+root = avatar
 root = group("HairCap")
 ball("Crown",(0,.051,2.807),(.498,.372,.308),hair)
 for side in (-1,1):
@@ -334,7 +441,7 @@ scene.render.resolution_y=940
 scene.render.resolution_percentage=100
 
 bpy.context.preferences.filepaths.save_version = 0
-bpy.ops.wm.save_as_mainfile(filepath=str(Path(__file__).with_name("atelie.blend")))
+
 for name, selection in [("atelie", bpy.data.objects["Atelier"]),("lulu-3d",avatar)]:
     bpy.ops.object.select_all(action='DESELECT')
     for item in [selection,*selection.children_recursive]:
@@ -344,3 +451,12 @@ for name, selection in [("atelie", bpy.data.objects["Atelier"]),("lulu-3d",avata
         avatar.location=(0,0,0)
     bpy.ops.export_scene.gltf(filepath=str(OUT/f"{name}.glb"), export_format="GLB",
                              use_selection=True, export_apply=True)
+
+avatar.location=(0,-.55,.31)
+defaults={"eyes_doce","nose_botao","mouth_sorriso"}
+for part in avatar.children:
+    if part.name.startswith(("eyes_","nose_","mouth_")) and part.name not in defaults:
+        for item in [part,*part.children_recursive]:
+            item.hide_render=True
+            item.hide_set(True)
+bpy.ops.wm.save_as_mainfile(filepath=str(Path(__file__).with_name("atelie.blend")),compress=True)

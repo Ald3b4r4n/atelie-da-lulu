@@ -67,7 +67,18 @@ const SHADOWS = [
 /* ---------------------------------------------------------
    Estado
    --------------------------------------------------------- */
+const FACE_OPTIONS = {
+  eyeShape: { title: "Formato dos olhos", options: { doce: "Doce", redondo: "Redondo", amendoado: "Amendoado" } },
+  mouthShape: { title: "Formato da boca", options: { sorriso: "Sorriso", suave: "Sorriso suave", risada: "Risada" } },
+  noseShape: { title: "Formato do nariz", options: { botao: "Botão", delicado: "Delicado", arredondado: "Arredondado" } }
+};
+const defaultFace = { eyeShape: "doce", mouthShape: "sorriso", noseShape: "botao" };
+const wardrobeSlots = new Set(["dress", "top", "bottom", "shoe"]);
+let thumbnailObserver;
+let closeUp = false;
+
 const defaults = () => ({
+  ...defaultFace,
   skin: "#F7D2B0",
   hair: "longo",
   hairColor: "#5B3A24",
@@ -172,6 +183,12 @@ function apply(slot, id) {
     case "eye":
       state.eye = id;
       break;
+    case "eyeShape":
+    case "mouthShape":
+    case "noseShape":
+      if (!Object.hasOwn(FACE_OPTIONS[slot].options, id)) return;
+      state[slot] = id;
+      break;
     case "skin":
       state.skin = id;
       break;
@@ -219,6 +236,9 @@ function isSelected(slot, id) {
     case "blush": return state.blush === id;
     case "shadow": return state.shadow === id;
     case "eye": return state.eye === id;
+    case "eyeShape":
+    case "mouthShape":
+    case "noseShape": return state[slot] === id;
     case "skin": return state.skin === id;
     case "bg": return state.bg === id;
     case "pulseira":
@@ -370,6 +390,7 @@ window.addEventListener("musicchange", (e) => {
 const TABS = [
   { id: "roupas", label: "👗 Roupas" },
   { id: "cabelo", label: "💇 Cabelo" },
+  { id: "rosto", label: "✨ Rosto" },
   { id: "maquiagem", label: "💄 Maquiagem" },
   { id: "pele", label: "🤎 Pele" },
   { id: "sapatos", label: "👟 Sapatos" },
@@ -395,6 +416,7 @@ function buildTabs() {
     b.textContent = tab.label;
     b.addEventListener("click", () => {
       activeTab = tab.id;
+      frameStudio();
       $$(".tab", nav).forEach((t) => t.classList.toggle("active", t.textContent === tab.label));
       buildSubbar();
       buildPalette();
@@ -430,6 +452,12 @@ function buildSubbar() {
   });
 }
 
+function frameStudio() {
+  const face = activeTab === "rosto";
+  $("#btn-close").setAttribute("aria-pressed", String(face || closeUp));
+  studio?.frame(face ? "face" : closeUp);
+}
+
 function makeTile(slot, id, name, vb, art) {
   const b = document.createElement("button");
   b.type = "button";
@@ -443,7 +471,7 @@ function makeTile(slot, id, name, vb, art) {
     if (suppressClick) return;
     apply(slot, id);
   });
-  attachDrag(b, slot, id);
+  if (!Object.hasOwn(FACE_OPTIONS, slot)) attachDrag(b, slot, id);
   return b;
 }
 
@@ -515,6 +543,7 @@ const hairPreview = (item) =>
 
 function buildPalette() {
   const p = $("#palette");
+  thumbnailObserver?.disconnect();
   p.innerHTML = "";
 
   if (activeTab === "roupas") {
@@ -526,6 +555,26 @@ function buildPalette() {
   if (activeTab === "cabelo") {
     p.appendChild(section(`Penteados (${Object.keys(HAIR).length})`, gridOf(HAIR, "hair", (it) => hairPreview(it))));
     p.appendChild(section("Cor do cabelo", swatchRow(HAIR_COLORS, "haircolor")));
+  }
+
+  if (activeTab === "rosto") {
+    for (const [slot, { title, options }] of Object.entries(FACE_OPTIONS)) {
+      const row = document.createElement("div");
+      row.className = "face-options";
+      row.setAttribute("role", "group");
+      row.setAttribute("aria-label", title);
+      for (const [id, name] of Object.entries(options)) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "face-choice";
+        button.textContent = name;
+        button.dataset.slot = slot;
+        button.dataset.id = id;
+        button.addEventListener("click", () => apply(slot, id));
+        row.appendChild(button);
+      }
+      p.appendChild(section(title, row));
+    }
   }
 
   if (activeTab === "maquiagem") {
@@ -568,6 +617,7 @@ function buildPalette() {
     p.appendChild(tip);
   }
 
+  if (studio && studioActive) observeWardrobe(p);
   updateSelection();
 }
 
@@ -575,6 +625,28 @@ function buildPalette() {
    Arrastar e soltar
    --------------------------------------------------------- */
 let drag = null;
+
+function observeWardrobe(palette) {
+  const tiles = [...palette.querySelectorAll(".tile")].filter(tile => wardrobeSlots.has(tile.dataset.slot));
+  if (!tiles.length) return;
+  thumbnailObserver = new IntersectionObserver(entries => {
+    for (const { target: tile, isIntersecting } of entries) {
+      if (!isIntersecting || !tile.isConnected) continue;
+      thumbnailObserver.unobserve(tile);
+      try {
+        const src = studio.thumbnail(tile.dataset.slot, tile.dataset.id);
+        if (!src) continue;
+        const image = new Image();
+        image.alt = "";
+        image.src = src;
+        tile.querySelector(".tile-art").replaceChildren(image);
+      } catch (error) {
+        console.warn("Miniatura 3D indisponível.", error);
+      }
+    }
+  }, { root: palette, rootMargin: "36px" });
+  tiles.forEach(tile => thumbnailObserver.observe(tile));
+}
 
 function attachDrag(el, slot, id) {
   el.addEventListener("pointerdown", (e) => {
@@ -652,6 +724,7 @@ function surprise() {
   if (Math.random() < 0.35) acc.extras = [pick(Object.keys(EXTRAS))];
 
   state = {
+    ...Object.fromEntries(Object.entries(FACE_OPTIONS).map(([slot, { options }]) => [slot, pick(Object.keys(options))])),
     skin: pick(SKINS).id,
     hair: pick(Object.keys(HAIR)),
     hairColor: pick(HAIR_COLORS).id,
@@ -796,8 +869,13 @@ async function loadStudio() {
     studio = await mountStudio($("#stage"), {
       hair: HAIR, tops: TOPS, bottoms: BOTTOMS, dresses: DRESSES, shoes: SHOES,
       bracelets: PULSEIRAS, necklaces: COLARES, earrings: BRINCOS, glasses: OCULOS, scenes: SCENES
-    }, tapLulu, state);
+    }, tapLulu, state, error => {
+      console.warn("Cenário 3D indisponível.", error);
+      toast("Não consegui abrir esse cenário. Tente de novo.");
+    });
     studio.update(state);
+    buildPalette();
+    frameStudio();
     $("#studio-tools").hidden = false;
     $("#stage-label").hidden = false;
     $("#btn-view").hidden = false;
@@ -813,6 +891,7 @@ async function loadStudio() {
 $("#btn-view").addEventListener("click", () => {
   studioActive = !studioActive;
   studio.setActive(studioActive);
+  buildPalette();
   $("#btn-view").textContent = studioActive ? "Clássico" : "Voltar ao 3D";
   $("#studio-tools").hidden = !studioActive;
   $("#stage-label").hidden = !studioActive;
@@ -822,8 +901,9 @@ $("#btn-turn").addEventListener("click", () => studio.rotate(Math.PI / 4));
 $("#btn-close").addEventListener("click", event => {
   const button = event.currentTarget;
   const close = button.getAttribute("aria-pressed") === "false";
+  if (activeTab !== "rosto") closeUp = close;
   button.setAttribute("aria-pressed", String(close));
-  studio.frame(close);
+  studio.frame(close && activeTab === "rosto" ? "face" : close);
 });
 
 $("#btn-start").addEventListener("click", () => {

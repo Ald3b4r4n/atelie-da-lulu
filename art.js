@@ -264,19 +264,34 @@ const makeupSVG = (st) => `
   ${st.shadow ? both(`<ellipse cx="137" cy="136" rx="21" ry="11" fill="${st.shadow}" opacity=".8" filter="url(#soft)"/>`) : ""}
   ${st.blush ? both(`<ellipse cx="120" cy="188" rx="14" ry="8" fill="${st.blush}" opacity=".55" filter="url(#soft)"/>`) : ""}`;
 
-const faceSVG = (st) => `
-  ${both(`
-    <ellipse cx="137" cy="156" rx="17" ry="20" fill="#fff" stroke="rgba(80,40,30,.16)" stroke-width="2"/>
-    <circle cx="137" cy="158" r="12" fill="${st.eye}"/>
-    <circle cx="137" cy="158" r="6.5" fill="#2b1d1d"/>
-    <circle cx="133" cy="152" r="4.2" fill="#fff"/>
-    <circle cx="141" cy="164" r="2.4" fill="#fff" opacity=".8"/>
-    <path d="M121,139 C127,129 148,129 153,139" stroke="#3b2b2b" stroke-width="4.5" fill="none" stroke-linecap="round"/>
-    <path d="M122,116 C130,107 147,105 155,113" stroke="#7A5540" stroke-width="4" fill="none" stroke-linecap="round"/>
-  `)}
-  <path d="M160,182 C155,188 157,192 163,191" stroke="rgba(130,80,55,.45)" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <g>
-    <path d="M144,202 C150,194 170,194 176,202 C173,213 167,219 160,219 C153,219 147,213 144,202 Z" fill="${st.lip}"/>
-    <path d="M147,203.5 C153,201 167,201 173,203.5" stroke="rgba(90,20,40,.18)" stroke-width="1.6" fill="none"/>
-    <ellipse cx="152" cy="212" rx="4.5" ry="2.2" fill="rgba(255,255,255,.38)"/>
-  </g>`;
+const faceSVG = (st) => {
+  const eyeScale = { doce: 1, redondo: 1.12, amendoado: .76 }[st.eyeShape] ?? 1;
+  const nose = {
+    botao: "M154,186 Q160,181 166,186 Q167,192 160,193 Q153,192 154,186Z",
+    delicado: "M161,178 Q157,184 157,188 Q158,191 163,190",
+    arredondado: "M152,187 Q160,179 168,187 Q167,193 160,193 Q153,193 152,187Z"
+  }[st.noseShape];
+  const mouths = {
+    sorriso: ["M142,201 Q160,199 178,201 Q173,219 160,219 Q147,219 142,201Z", "M147,204 Q160,205 173,204 Q169,216 160,216 Q151,216 147,204Z"],
+    suave: ["M146,204 Q160,205 174,204 Q169,214 160,214 Q151,214 146,204Z", "M148,205 Q160,213 172,205 Q165,214 160,213 Q154,213 148,205Z"],
+    risada: ["M142,202 Q160,194 178,202 Q175,222 160,222 Q145,222 142,202Z", "M146,204 Q160,199 174,204 Q171,219 160,219 Q149,219 146,204Z"]
+  };
+  const [outer, inner] = mouths[st.mouthShape] || mouths.sorriso;
+  return `
+    ${both(`
+      <g transform="translate(137 156) scale(1 ${eyeScale}) translate(-137 -156)">
+        <ellipse cx="137" cy="156" rx="17" ry="19" fill="#fff" stroke="#d8a7a0" stroke-width="1.5"/>
+        <circle cx="137" cy="157" r="11.5" fill="${st.eye}"/>
+        <circle cx="137" cy="157" r="6.4" fill="#2b1d1d"/>
+        <circle cx="133" cy="151" r="3.8" fill="#fff"/>
+        <circle cx="141" cy="163" r="2" fill="#fff" opacity=".8"/>
+        <path d="M121,140 Q135,125 153,139 M124,137 L119,133" stroke="#482d36" stroke-width="3.3" fill="none" stroke-linecap="round"/>
+      </g>
+      <path d="M122,116 Q140,104 155,113" stroke="#7a5540" stroke-width="3.3" fill="none" stroke-linecap="round"/>
+    `)}
+    <path d="${nose || "M154,187 Q160,181 166,187 Q160,195 154,187Z"}" fill="${st.noseShape === "delicado" ? "none" : st.skin}" stroke="#bb8270" stroke-opacity=".55" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="${outer}" fill="${st.lip}"/>
+    <path d="${inner}" fill="#773349"/>
+    ${st.mouthShape === "suave" ? "" : '<path d="M150,204 Q160,202 170,204 Q166,209 160,209 Q154,209 150,204Z" fill="#fff4ea"/><ellipse cx="160" cy="214" rx="5" ry="2.1" fill="#df7899"/>'}
+  `;
+};
