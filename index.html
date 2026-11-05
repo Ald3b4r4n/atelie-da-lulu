@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ateliê da Lulu 3D — Jogo de Vestir</title>
+<meta name="description" content="Ateliê da Lulu: vestir, maquiar, pentear e brincar com cenários e músicas." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&family=Pacifico&display=swap" rel="stylesheet" />
+<link rel="icon" href="assets/borboleta.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ================= Abertura / identidade ================= -->
+  <div class="welcome" id="welcome">
+    <div class="welcome-bubbles" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="welcome-card">
+      <div class="welcome-photo">
+        <div class="photo-fallback" aria-hidden="true">
+          <div class="pf-balloons">
+            <span class="pf-b pf-pink"></span><span class="pf-b pf-blue"></span>
+            <span class="pf-b pf-mint"></span><span class="pf-b pf-lilac"></span>
+          </div>
+          <div class="pf-girl">
+            <div class="pf-hair"></div>
+            <div class="pf-face">
+              <span class="pf-eye"></span><span class="pf-eye"></span>
+              <span class="pf-smile"></span>
+            </div>
+            <div class="pf-dress">
+              <div class="pf-neck"></div>
+              <div class="pf-bodice"></div>
+              <div class="pf-skirt"></div>
+            </div>
+          </div>
+          <div class="pf-butterfly">🦋</div>
+        </div>
+        <img src="assets/lulu.png" alt="Lulu, a dona do ateliê" id="lulu-photo" onerror="this.remove()" />
+        <div class="photo-shine" aria-hidden="true"></div>
+        <span class="photo-tag">Lulu 💕</span>
+        <span class="photo-butterfly" aria-hidden="true">🦋</span>
+      </div>
+
+      <div class="welcome-text">
+        <p class="welcome-kicker">✦ UM ATELIÊ DE FAZ DE CONTA ✦</p>
+        <h1 class="welcome-title">Ateliê da <span>Lulu</span></h1>
+        <p class="welcome-sub">
+          Oi, eu sou a Lulu! Abra meu guarda-roupa, invente um look e descubra os mundos que aparecem na janela. Cada um tem sua própria musiquinha!
+        </p>
+        <button class="btn-start" id="btn-start">Vamos brincar! 🦋</button>
+        <p class="welcome-hint">Vista a Lulu • Descubra 20 mundos • Salve seus looks</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Jogo ================= -->
+  <div class="app" id="app" aria-hidden="true">
+    <header class="topbar">
+      <h1 class="brand">
+        <span class="brand-avatar">
+          <img src="assets/lulu.png" alt="" onerror="this.remove()" />
+          <span class="brand-initial">L</span>
+        </span>
+        <span class="brand-text">Ateliê da <span>Lulu</span></span>
+        <span class="brand-butterfly" aria-hidden="true">🦋</span>
+      </h1>
+      <div class="actions">
+        <button class="btn" id="btn-random" title="Criar um look surpresa">🎲 <span>Surpresa</span></button>
+        <button class="btn" id="btn-clear" title="Voltar ao look inicial">🧽 <span>Limpar</span></button>
+        <button class="btn primary" id="btn-save" title="Salvar uma foto do look">📸 <span>Salvar foto</span></button>
+        <button class="btn sound on" id="btn-sound" title="Ligar ou desligar os efeitos sonoros" aria-pressed="true">🔊</button>
+        <button class="btn music on" id="btn-music" title="Ligar ou desligar a música" aria-pressed="true">🎵</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="stage-wrap">
+        <div class="stage" id="stage">
+          <svg id="doll" viewBox="0 0 320 560" role="img" aria-label="Boneca para vestir e maquiar">
+            <defs>
+              <filter id="soft" x="-70%" y="-70%" width="240%" height="240%">
+                <feGaussianBlur stdDeviation="4" />
+              </filter>
+            </defs>
+            <g id="lay-scene"></g>
+            <g id="lay-hair-back"></g>
+            <g id="lay-body"></g>
+            <g id="lay-makeup"></g>
+            <g id="lay-face"></g>
+            <g id="lay-bottom"></g>
+            <g id="lay-dress"></g>
+            <g id="lay-top"></g>
+            <g id="lay-shoes"></g>
+            <g id="lay-bracelets"></g>
+            <g id="lay-necklaces"></g>
+            <g id="lay-hair-front"></g>
+            <g id="lay-earrings"></g>
+            <g id="lay-glasses"></g>
+            <g id="lay-extras"></g>
+            <g id="lay-acc"></g>
+          </svg>
+
+          <div class="stage-label" id="stage-label" hidden><span aria-hidden="true">✦</span> <span id="stage-world">Ateliê da Lulu</span></div>
+          <div class="studio-tools" id="studio-tools" hidden aria-label="Controles da vista">
+            <button type="button" id="btn-turn" aria-label="Girar a Lulu" title="Girar a Lulu">↻</button>
+            <button type="button" id="btn-close" aria-label="Aproximar a Lulu" title="Aproximar a Lulu" aria-pressed="false">⌕</button>
+          </div>
+          <button type="button" id="btn-view" class="btn-view" hidden aria-label="Alternar entre a vista 3D e a clássica">Clássico</button>
+          <div class="bubble" id="bubble">Oi! Vamos brincar? 💕</div>
+          <div class="hint" id="hint">Toque nas roupinhas para vestir 👆</div>
+
+          <div class="now-playing" id="now-playing" aria-live="polite">
+            <span class="np-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span id="np-title">Música do cenário</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="wardrobe-title"><span aria-hidden="true">✦</span><div><p>Crie um look</p><h2>Guarda-roupa</h2></div></div>
+        <nav class="tabs" id="tabs" aria-label="Categorias"></nav>
+        <div class="subbar" id="subbar" hidden></div>
+        <div class="palette" id="palette"></div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="art.js"></script>
+  <script src="clothes.js"></script>
+  <script src="accessories.js"></script>
+  <script src="scenes.js"></script>
+  <script src="music.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

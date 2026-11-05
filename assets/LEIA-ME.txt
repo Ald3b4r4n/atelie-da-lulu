@@ -1,0 +1,3 @@
+lulu.png é a foto usada na abertura e no avatar.
+atelie.glb e lulu-3d.glb são os modelos exportados do Blender.
+studio.bundle.js contém a engine e o código da cena 3D.

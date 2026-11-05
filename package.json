@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "name": "atelie-da-lulu",
+  "scripts": {
+    "start": "node server.js",
+    "build": "esbuild studio.js --bundle --format=esm --minify --outfile=assets/studio.bundle.js"
+  }
+}
