@@ -55,4 +55,4 @@ npm run build
 
 ## Hospedagem
 
-Para publicar na Vercel ou em outro host estático, envie `index.html`, `styles.css`, os scripts `art.js`, `clothes.js`, `accessories.js`, `scenes.js`, `music.js` e `game.js`, além de `assets/`, preservando essa estrutura. A engine já está compilada em `assets/studio.bundle.js`. O servidor Node.js serve para jogar localmente.
+A Vercel usa o `vercel.json` para gerar e publicar a pasta `dist/`. Para gerar a mesma versão e servir em outro host estático, execute `node scripts/build-static.mjs` e publique o conteúdo de `dist/`.
